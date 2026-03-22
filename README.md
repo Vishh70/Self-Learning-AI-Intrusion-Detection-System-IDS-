@@ -4,6 +4,9 @@ This project implements a full-featured, self-learning intrusion detection syste
 
 ## 🎬 Project Showcase: Live Dashboard
 The system features a professional-grade web interface for real-time security operations:
+
+![AI IDS Dashboard Demo](assets/demo.webp)
+
 - **Live Traffic Monitoring**: Real-time packet capture on active network interfaces (e.g., WiFi).
 - **AI Deep-Dive**: Deep-packet inspection with per-packet anomaly scores.
 - **Threat Filtering**: Instant isolation of security threats via the 'Suspicious only' toggle.
