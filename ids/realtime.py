@@ -25,10 +25,12 @@ def _align_features_for_model(matrix: pd.DataFrame, model) -> pd.DataFrame:
 def predict_feature_row(model, feature_row: dict) -> dict:
     matrix = build_inference_matrix(feature_row)
     matrix = _align_features_for_model(matrix, model)
-    anomaly = int(model.predict(matrix)[0])
+    use_numpy = getattr(model, "feature_names_in_", None) is None
+    model_input = matrix.to_numpy() if use_numpy else matrix
+    anomaly = int(model.predict(model_input)[0])
 
     # Keep the raw Isolation Forest score for debugging and logs.
-    raw_score = float(model.score_samples(matrix)[0])
+    raw_score = float(model.score_samples(model_input)[0])
 
     # Heuristic dashboard risk score derived from the raw score.
     # We use the model's internal offset if available, otherwise default to -0.5.

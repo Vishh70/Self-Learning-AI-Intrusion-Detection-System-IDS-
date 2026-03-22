@@ -44,3 +44,6 @@ data/*.csv
 # Project clean-up fragments
 /tmp/cleanup_ids.py
 /tmp/git_push_helper.sh
+
+.pytest_local_tmp/
+
