@@ -122,11 +122,11 @@ def detect_connected_ssid(interface: str | None = None) -> tuple[str | None, str
 
         key, value = [part.strip() for part in line.split(":", 1)]
         key_lower = key.lower()
-        if key_lower == "name":
+        if "name" in key_lower and "ssid" not in key_lower and "bssid" not in key_lower:
             current_name = (value or "").strip()
-        elif key_lower == "ssid" and not key_lower.startswith("bssid"):
+        elif "ssid" in key_lower and "bssid" not in key_lower:
             current_ssid = value
-        elif key_lower.startswith("bssid") and current_ssid:
+        elif "bssid" in key_lower and current_ssid:
             # Flexible comparison for interface name (WiFi vs Wi-Fi)
             match = False
             if not target_interface:

@@ -21,6 +21,7 @@ env/
 .pytest_cache/
 .pytest_tmp/
 .pytest-tmp-run/
+.pytest_tmp_run/
 .pytest-cache-local/
 pytest-cache-files-*/
 logs/pytest-tmp/

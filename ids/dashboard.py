@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from collections import deque
+from datetime import datetime
 from threading import Lock, Thread
 
 from ids.config import DASHBOARD_DEFAULT_LIMIT, DASHBOARD_MAX_LIMIT
@@ -56,8 +57,8 @@ def get_recent_events(
     if dst_ip:
         items = [e for e in items if dst_ip in str(e.get("dst_ip", ""))]
         
-    # Default to 'traffic' only if no specific type is requested to keep the main feed clean
-    effective_type = event_type if event_type else "traffic"
+    # Default to 'all' so the UI "All Events" matches backend behavior
+    effective_type = event_type if event_type else "all"
     
     if effective_type == "traffic":
         items = [e for e in items if e.get("src_ip") not in ("WATCHDOG", "SYSTEM")]
@@ -79,7 +80,13 @@ def get_threat_trend(max_points: int = 30) -> list[dict]:
     
     # Filter for real traffic and sort by time
     traffic = [e for e in items if e.get("src_ip") not in ("WATCHDOG", "SYSTEM")]
-    traffic.sort(key=lambda x: str(x.get("timestamp", "")))
+    def _parse_ts(value: str) -> float:
+        try:
+            return datetime.fromisoformat(value).timestamp()
+        except Exception:
+            return float("-inf")
+
+    traffic.sort(key=lambda x: _parse_ts(str(x.get("timestamp", ""))))
     
     # Group by timestamp (simplified grouping)
     trend_data = []

@@ -290,6 +290,111 @@
             margin-top: 24px;
         }
 
+        .overview-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(220px, 1fr));
+            gap: 16px;
+            padding: 20px 28px 28px;
+        }
+
+        .overview-card {
+            padding: 18px;
+            border-radius: 12px;
+            background: rgba(15, 23, 42, 0.55);
+            border: 1px solid var(--panel-border);
+            display: grid;
+            gap: 8px;
+        }
+
+        .overview-card span {
+            color: var(--text-muted);
+            font-size: 0.8rem;
+            letter-spacing: 0.12em;
+            text-transform: uppercase;
+        }
+
+        .overview-card strong {
+            font-family: var(--font-display);
+            font-size: 1.4rem;
+            letter-spacing: 0.02em;
+        }
+
+        .overview-card small {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .pipeline {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+            gap: 12px;
+            padding: 0 28px 24px;
+        }
+
+        .pipeline-step {
+            padding: 14px 16px;
+            border-radius: 10px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: rgba(2, 6, 23, 0.6);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            display: flex;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .pipeline-step strong {
+            font-family: var(--font-display);
+            color: var(--text-main);
+            font-size: 1rem;
+        }
+
+        .health-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 12px;
+            padding: 0 28px 28px;
+        }
+
+        .health-item {
+            padding: 12px 14px;
+            border-radius: 10px;
+            border: 1px solid var(--panel-border);
+            background: rgba(15, 23, 42, 0.6);
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            font-size: 0.85rem;
+            color: var(--text-muted);
+        }
+
+        .health-pill {
+            padding: 4px 10px;
+            border-radius: 999px;
+            font-size: 0.75rem;
+            font-weight: 600;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .health-good {
+            color: var(--normal);
+            background: rgba(16, 185, 129, 0.12);
+            border: 1px solid rgba(16, 185, 129, 0.35);
+        }
+
+        .health-warn {
+            color: var(--warning);
+            background: rgba(245, 158, 11, 0.12);
+            border: 1px solid rgba(245, 158, 11, 0.35);
+        }
+
+        .health-bad {
+            color: var(--alert);
+            background: rgba(239, 68, 68, 0.12);
+            border: 1px solid rgba(239, 68, 68, 0.35);
+        }
+
         .monitor-meta {
             display: flex;
             flex-wrap: wrap;
@@ -910,6 +1015,65 @@
         </div>
     </section>
 
+    <section class="panel" style="margin-bottom: 32px;">
+        <div class="panel-header">
+            <div class="panel-title">
+                <strong>System Overview</strong>
+                <span>Model readiness, dataset coverage, and runtime checks</span>
+            </div>
+            <div class="badge" id="model-ready-badge">Model Check</div>
+        </div>
+
+        <div class="overview-grid">
+            <div class="overview-card">
+                <span>Model</span>
+                <strong>Isolation Forest</strong>
+                <small id="model-status-text">checking model + dataset</small>
+            </div>
+            <div class="overview-card">
+                <span>Features</span>
+                <strong>19 Core Fields</strong>
+                <small>Flow + temporal enrichment</small>
+            </div>
+            <div class="overview-card">
+                <span>Runtime</span>
+                <strong id="runtime-state">{{ "Live" if monitor_running else "Idle" }}</strong>
+                <small id="runtime-note">{{ "Monitoring traffic" if monitor_running else "Monitor stopped" }}</small>
+            </div>
+            <div class="overview-card">
+                <span>Last Refresh</span>
+                <strong id="last-refresh">--:--:--</strong>
+                <small>Auto refresh every 1s</small>
+            </div>
+        </div>
+
+        <div class="pipeline">
+            <div class="pipeline-step"><strong>1</strong> Capture packets (live or pcap)</div>
+            <div class="pipeline-step"><strong>2</strong> Extract features + enrich</div>
+            <div class="pipeline-step"><strong>3</strong> Score with Isolation Forest</div>
+            <div class="pipeline-step"><strong>4</strong> Alert + visualize results</div>
+        </div>
+
+        <div class="health-grid">
+            <div class="health-item">
+                Model file
+                <span id="health-model" class="health-pill health-warn">unknown</span>
+            </div>
+            <div class="health-item">
+                Features dataset
+                <span id="health-features" class="health-pill health-warn">unknown</span>
+            </div>
+            <div class="health-item">
+                Alerts log
+                <span id="health-alerts" class="health-pill health-warn">unknown</span>
+            </div>
+            <div class="health-item">
+                Email readiness
+                <span id="health-email" class="health-pill health-warn">unknown</span>
+            </div>
+        </div>
+    </section>
+
     <section class="panel">
         <div class="panel-header">
             <div class="panel-title">
@@ -967,6 +1131,9 @@
                 <input type="number" id="limit-input" min="1" max="100" value="{{ limit }}">
             </label>
             <a href="/downloads/alerts">Download alerts log</a>
+            <span class="monitor-note">
+                Adapter: <strong id="monitor-interface-inline">{{ monitor_details.active_interface if monitor_details.active_interface else "auto-detect on start" }}</strong>
+            </span>
             <span class="monitor-note">
                 Wi-Fi: <strong id="monitor-ssid-inline">{{ monitor_details.ssid if monitor_details.ssid else "not available" }}</strong>
             </span>
@@ -1251,6 +1418,54 @@
                 set("monitor-interface-inline", details.active_interface || "auto-detect on start");
                 set("monitor-ssid-inline", details.ssid || "not available");
             }
+
+            const setPill = (id, state, label) => {
+                const el = document.getElementById(id);
+                if (!el) return;
+                el.classList.remove("health-good", "health-warn", "health-bad");
+                el.classList.add(state);
+                el.textContent = label;
+            };
+
+            setPill(
+                "health-model",
+                health.model_exists ? "health-good" : "health-bad",
+                health.model_exists ? "ready" : "missing"
+            );
+            setPill(
+                "health-features",
+                health.features_csv_exists ? "health-good" : "health-bad",
+                health.features_csv_exists ? "ready" : "missing"
+            );
+            setPill(
+                "health-alerts",
+                health.alerts_log_exists ? "health-good" : "health-warn",
+                health.alerts_log_exists ? "ready" : "empty"
+            );
+            setPill(
+                "health-email",
+                health.email_ready ? "health-good" : (health.email_enabled ? "health-warn" : "health-bad"),
+                health.email_ready ? "ready" : (health.email_enabled ? "configure" : "disabled")
+            );
+
+            const modelBadge = document.getElementById("model-ready-badge");
+            const modelText = document.getElementById("model-status-text");
+            if (modelBadge) {
+                modelBadge.textContent = health.overall_ok ? "Model Ready" : "Needs Setup";
+                modelBadge.classList.toggle("offline", !health.overall_ok);
+            }
+            if (modelText) {
+                modelText.textContent = health.overall_ok
+                    ? "model + dataset available"
+                    : "train model or generate features";
+            }
+
+            const runtimeState = document.getElementById("runtime-state");
+            const runtimeNote = document.getElementById("runtime-note");
+            if (runtimeState && runtimeNote) {
+                runtimeState.textContent = payload.monitor_running ? "Live" : "Idle";
+                runtimeNote.textContent = payload.monitor_running ? "Monitoring traffic" : "Monitor stopped";
+            }
         } catch (error) {
             console.error("Health refresh failed", error);
             const healthElem = document.getElementById("health-status");
@@ -1293,6 +1508,10 @@
             document.getElementById("normal-count").textContent = payload.summary.normal;
             document.getElementById("suspicious-count").textContent = payload.summary.suspicious;
             document.getElementById("anomaly-rate").textContent = `${payload.summary.anomaly_rate}%`;
+            const refreshLabel = document.getElementById("last-refresh");
+            if (refreshLabel) {
+                refreshLabel.textContent = new Date().toLocaleTimeString();
+            }
 
             // Update Export URL
             document.getElementById("export-btn").href = `/api/export?${query.toString()}`;

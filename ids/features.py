@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import ipaddress
+from datetime import datetime
 
 from scapy.layers.inet import IP, TCP, UDP
 
@@ -43,7 +44,14 @@ def extract_features(packet_summary: dict, packet=None) -> dict | None:
     if not packet_summary:
         return None
 
-    now = time.time()
+    ts_value = packet_summary.get("timestamp")
+    if isinstance(ts_value, str) and ts_value:
+        try:
+            now = datetime.fromisoformat(ts_value).timestamp()
+        except (ValueError, OSError, TypeError):
+            now = time.time()
+    else:
+        now = time.time()
     protocol_number = _int_value(packet_summary.get("protocol", 0), default=0)
     src_ip = str(packet_summary.get("src_ip", ""))
     dst_ip = str(packet_summary.get("dst_ip", ""))

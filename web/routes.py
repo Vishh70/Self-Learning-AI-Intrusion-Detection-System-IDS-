@@ -140,8 +140,15 @@ def export_csv():
     
     output = io.StringIO()
     if events:
-        # Filter out internal/private fields if any (already mostly clean)
-        writer = csv.DictWriter(output, fieldnames=events[0].keys())
+        # Merge headers across all events so mixed event types export correctly.
+        header_keys = list(events[0].keys())
+        all_keys = set(header_keys)
+        for event in events[1:]:
+            all_keys.update(event.keys())
+        missing = [key for key in sorted(all_keys) if key not in header_keys]
+        fieldnames = header_keys + missing
+
+        writer = csv.DictWriter(output, fieldnames=fieldnames)
         writer.writeheader()
         writer.writerows(events)
     
