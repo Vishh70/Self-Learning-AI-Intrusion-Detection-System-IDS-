@@ -135,4 +135,4 @@ Rigorously tested to ensure 100% accuracy and stability:
 ---
 
 ## 📝 License
-Distributed under the MIT License. Developed with ❤️ by [Vishh70](https://github.com/Vishh70).
+Distributed under the MIT License. Developed with ❤️ by [Vishnu (Vishh70)](https://github.com/Vishh70) & [Atharva (Atharva-cell-web)](https://github.com/Atharva-cell-web).
