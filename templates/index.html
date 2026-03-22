@@ -1,0 +1,1327 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>AI IDS Dashboard</title>
+    <!-- Google Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=Outfit:wght@500;700;800&display=swap" rel="stylesheet">
+    <!-- Chart.js -->
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <style>
+        :root {
+            /* Deeper, more vibrant dark theme */
+            --bg-base: #030712;
+            --bg-gradient-1: #0f172a;
+            --bg-gradient-2: #020617;
+            
+            /* Glassmorphism Panels */
+            --panel-bg: rgba(15, 23, 42, 0.45);
+            --panel-border: rgba(255, 255, 255, 0.08);
+            --panel-strong: rgba(15, 23, 42, 0.75);
+            
+            /* Typography */
+            --font-sans: 'Inter', sans-serif;
+            --font-display: 'Outfit', sans-serif;
+            --font-mono: 'Consolas', 'Courier New', monospace;
+            
+            /* Text Colors */
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+            
+            /* Accents & Status */
+            --accent: #38bdf8;
+            --accent-glow: rgba(56, 189, 248, 0.4);
+            --normal: #10b981;
+            --normal-glow: rgba(16, 185, 129, 0.3);
+            --alert: #ef4444;
+            --alert-glow: rgba(239, 68, 68, 0.4);
+            --warning: #f59e0b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        /* Top Header Navigation */
+        .top-nav {
+            position: sticky;
+            top: 0;
+            z-index: 100;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            padding: 16px 32px;
+            background: rgba(3, 7, 18, 0.7);
+            backdrop-filter: blur(20px);
+            -webkit-backdrop-filter: blur(20px);
+            border-bottom: 1px solid var(--panel-border);
+            margin-bottom: 24px;
+        }
+
+        .brand {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 800;
+            color: var(--text-main);
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .brand-icon {
+            width: 32px;
+            height: 32px;
+            background: linear-gradient(135deg, var(--accent), #1e3a8a);
+            border-radius: 8px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            box-shadow: 0 0 16px var(--accent-glow);
+        }
+
+        /* Toast Notifications */
+        .toast-container {
+            position: fixed;
+            bottom: 32px;
+            right: 32px;
+            display: flex;
+            flex-direction: column;
+            gap: 12px;
+            z-index: 200;
+        }
+
+        .toast {
+            display: flex;
+            align-items: center;
+            gap: 16px;
+            padding: 16px 20px;
+            background: rgba(15, 23, 42, 0.85);
+            backdrop-filter: blur(12px);
+            border: 1px solid rgba(239, 68, 68, 0.3);
+            border-left: 4px solid var(--alert);
+            border-radius: 8px;
+            box-shadow: 0 12px 32px rgba(0, 0, 0, 0.5);
+            color: var(--text-main);
+            font-family: var(--font-sans);
+            font-size: 0.95rem;
+            transform: translateX(120%);
+            opacity: 0;
+            transition: transform 0.4s cubic-bezier(0.34, 1.56, 0.64, 1), opacity 0.4s ease;
+        }
+
+        .toast.show {
+            transform: translateX(0);
+            opacity: 1;
+        }
+
+        /* Radar Pulse Animation */
+        .radar-blip {
+            display: inline-block;
+            width: 8px;
+            height: 8px;
+            background-color: var(--accent);
+            border-radius: 50%;
+            margin-right: 8px;
+            box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7);
+            animation: pulse-ring 2s infinite;
+        }
+        
+        .badge.offline .radar-blip {
+            background-color: var(--warning);
+            box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7);
+            animation: pulse-ring-offline 2s infinite;
+        }
+
+        @keyframes pulse-ring {
+            0% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(56, 189, 248, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(56, 189, 248, 0); }
+        }
+        
+        @keyframes pulse-ring-offline {
+            0% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0.7); }
+            70% { box-shadow: 0 0 0 10px rgba(245, 158, 11, 0); }
+            100% { box-shadow: 0 0 0 0 rgba(245, 158, 11, 0); }
+        }
+
+        /* Sortable Header */
+        th.sortable {
+            cursor: pointer;
+            transition: color 0.2s ease;
+            user-select: none;
+        }
+        
+        th.sortable:hover {
+            color: var(--text-main);
+        }
+        
+        th.sortable::after {
+            content: " ↕";
+            opacity: 0.3;
+            font-size: 0.8em;
+        }
+        
+        th.sort-asc::after { content: " ↓"; opacity: 1; color: var(--accent); }
+        th.sort-desc::after { content: " ↑"; opacity: 1; color: var(--accent); }
+
+        /* Global scrollbar styling */
+        ::-webkit-scrollbar { width: 8px; height: 8px; }
+        ::-webkit-scrollbar-track { background: var(--bg-base); }
+        ::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.15); border-radius: 4px; }
+        ::-webkit-scrollbar-thumb:hover { background: rgba(255,255,255,0.25); }
+
+        body {
+            min-height: 100vh;
+            font-family: var(--font-sans);
+            color: var(--text-main);
+            background: 
+                radial-gradient(circle at 15% 10%, rgba(56, 189, 248, 0.15), transparent 40%),
+                radial-gradient(circle at 85% 20%, rgba(239, 68, 68, 0.1), transparent 40%),
+                linear-gradient(135deg, var(--bg-gradient-1) 0%, var(--bg-base) 50%, var(--bg-gradient-2) 100%);
+            background-attachment: fixed;
+            line-height: 1.5;
+        }
+
+        /* Subtle animated grid background */
+        body::before {
+            content: "";
+            position: fixed;
+            inset: 0;
+            background-image:
+                linear-gradient(rgba(255, 255, 255, 0.03) 1px, transparent 1px),
+                linear-gradient(90deg, rgba(255, 255, 255, 0.03) 1px, transparent 1px);
+            background-size: 40px 40px;
+            pointer-events: none;
+            z-index: 0;
+            mask-image: radial-gradient(circle at center, black, transparent 80%);
+            -webkit-mask-image: radial-gradient(circle at center, black, transparent 80%);
+        }
+
+        .page {
+            width: min(1200px, calc(100% - 48px));
+            margin: 0 auto;
+            padding: 40px 0 60px;
+            position: relative;
+            z-index: 1;
+        }
+
+        /* Glassmorphism utility */
+        .glass {
+            background: var(--panel-bg);
+            backdrop-filter: blur(16px);
+            -webkit-backdrop-filter: blur(16px);
+            border: 1px solid var(--panel-border);
+            border-radius: 16px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            transition: transform 0.3s ease, box-shadow 0.3s ease;
+        }
+
+        .hero {
+            display: grid;
+            gap: 16px;
+            padding: 32px;
+            background: linear-gradient(145deg, rgba(30, 41, 59, 0.6), rgba(15, 23, 42, 0.4));
+            margin-bottom: 32px;
+            position: relative;
+            overflow: hidden;
+            border-radius: 16px;
+            border: 1px solid var(--panel-border);
+            backdrop-filter: blur(16px);
+            box-shadow: 0 16px 40px rgba(0, 0, 0, 0.4);
+        }
+        
+        /* Hero subtle animated glow */
+        .hero::before {
+            content: "";
+            position: absolute;
+            top: -50%; left: -50%; width: 200%; height: 200%;
+            background: radial-gradient(circle, rgba(56, 189, 248, 0.05) 0%, transparent 60%);
+            animation: spin 30s linear infinite;
+            pointer-events: none;
+            z-index: -1;
+        }
+        
+        @keyframes spin {
+            100% { transform: rotate(360deg); }
+        }
+
+        .eyebrow {
+            font-family: var(--font-sans);
+            font-weight: 600;
+            font-size: 0.85rem;
+            letter-spacing: 0.2em;
+            text-transform: uppercase;
+            color: var(--accent);
+            text-shadow: 0 0 10px var(--accent-glow);
+        }
+
+        h1 {
+            font-family: var(--font-display);
+            font-size: clamp(2.5rem, 5vw, 4.5rem);
+            font-weight: 800;
+            line-height: 1.1;
+            letter-spacing: -0.02em;
+            background: linear-gradient(to right, #ffffff, #94a3b8);
+            -webkit-background-clip: text;
+            background-clip: text;
+            -webkit-text-fill-color: transparent;
+            color: transparent;
+            margin-bottom: 8px;
+        }
+
+        .hero p {
+            max-width: 760px;
+            color: var(--text-muted);
+            font-size: 1.05rem;
+            line-height: 1.7;
+        }
+
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 20px;
+            margin-top: 24px;
+        }
+
+        .monitor-meta {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            margin-top: 8px;
+        }
+
+        .monitor-chip {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 12px;
+            border-radius: 999px;
+            background: rgba(255, 255, 255, 0.05);
+            border: 1px solid var(--panel-border);
+            color: var(--text-muted);
+            font-size: 0.85rem;
+        }
+
+        .monitor-chip strong {
+            color: var(--text-main);
+            font-size: 0.8rem;
+            letter-spacing: 0.08em;
+            text-transform: uppercase;
+        }
+
+        .card {
+            padding: 24px;
+            background: rgba(30, 41, 59, 0.4);
+            border-radius: 12px;
+            border: 1px solid var(--panel-border);
+            transition: transform 0.3s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.3s ease;
+            position: relative;
+            overflow: hidden;
+        }
+
+        .card:hover {
+            transform: translateY(-4px);
+            box-shadow: 0 12px 24px rgba(0, 0, 0, 0.4);
+            background: rgba(30, 41, 59, 0.6);
+            border-color: rgba(255, 255, 255, 0.15);
+        }
+
+        .card::after {
+            content: "";
+            position: absolute;
+            top: 0; left: 0; right: 0; height: 1px;
+            background: linear-gradient(90deg, transparent, rgba(255, 255, 255, 0.2), transparent);
+            opacity: 0;
+            transition: opacity 0.3s ease;
+        }
+        .card:hover::after { opacity: 1; }
+
+        .card .label {
+            display: block;
+            font-size: 0.8rem;
+            font-weight: 600;
+            letter-spacing: 0.15em;
+            text-transform: uppercase;
+            color: var(--text-muted);
+            margin-bottom: 12px;
+        }
+
+        .card .value {
+            font-family: var(--font-display);
+            font-size: clamp(2rem, 4vw, 3rem);
+            font-weight: 700;
+            line-height: 1;
+        }
+
+        .value.alert {
+            color: var(--alert);
+            text-shadow: 0 0 16px var(--alert-glow);
+        }
+
+        .value.normal {
+            color: var(--normal);
+            text-shadow: 0 0 16px var(--normal-glow);
+        }
+
+        .panel {
+            background: var(--panel-strong);
+            overflow: hidden;
+            border-radius: 16px;
+            border: 1px solid var(--panel-border);
+            box-shadow: 0 20px 40px rgba(0, 0, 0, 0.4);
+            backdrop-filter: blur(12px);
+        }
+
+        .panel-header {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            flex-wrap: wrap;
+            gap: 16px;
+            padding: 24px 28px;
+            border-bottom: 1px solid var(--panel-border);
+            background: rgba(255, 255, 255, 0.01);
+        }
+
+        .panel-title {
+            display: flex;
+            flex-direction: column;
+            gap: 6px;
+        }
+
+        .panel-title strong {
+            font-family: var(--font-display);
+            font-size: 1.25rem;
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        .panel-title span {
+            color: var(--text-muted);
+            font-size: 0.95rem;
+        }
+
+        .badge {
+            padding: 8px 16px;
+            border-radius: 20px;
+            background: rgba(56, 189, 248, 0.1);
+            color: var(--accent);
+            border: 1px solid rgba(56, 189, 248, 0.3);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            box-shadow: 0 0 12px var(--accent-glow);
+            transition: all 0.3s ease;
+            white-space: nowrap;
+        }
+
+        .badge.offline {
+            color: var(--warning);
+            background: rgba(245, 158, 11, 0.1);
+            border-color: rgba(245, 158, 11, 0.3);
+            box-shadow: 0 0 12px rgba(245, 158, 11, 0.2);
+        }
+
+        /* Filter Bar Styles */
+        .filter-bar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+            background: rgba(15, 23, 42, 0.6);
+            backdrop-filter: blur(8px);
+            padding: 16px 28px;
+            border-bottom: 1px solid var(--panel-border);
+        }
+
+        .filter-group {
+            display: flex;
+            align-items: center;
+            gap: 8px;
+        }
+
+        .filter-group label {
+            font-size: 0.75rem;
+            font-weight: 700;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            color: var(--text-muted);
+        }
+
+        .filter-input {
+            background: rgba(0, 0, 0, 0.3);
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 6px 12px;
+            color: var(--text-main);
+            font-size: 0.85rem;
+            outline: none;
+            transition: all 0.2s ease;
+        }
+
+        .filter-input:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px var(--accent-glow);
+        }
+
+        .btn-export {
+            margin-left: auto;
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            padding: 8px 16px;
+            background: rgba(56, 189, 248, 0.1);
+            border: 1px solid var(--accent);
+            border-radius: 6px;
+            color: var(--accent);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-decoration: none;
+            transition: all 0.2s ease;
+        }
+
+        .btn-export:hover {
+            background: var(--accent);
+            color: #fff;
+            box-shadow: 0 0 16px var(--accent-glow);
+        }
+
+        /* Trend Chart Styling */
+        .trend-container {
+            margin: 32px 0;
+            padding: 24px;
+            height: 300px;
+            position: relative;
+        }
+
+        .toolbar {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 16px;
+            align-items: center;
+            padding: 16px 28px;
+            border-bottom: 1px solid var(--panel-border);
+            background: rgba(0, 0, 0, 0.2);
+        }
+
+        .toolbar label {
+            display: inline-flex;
+            align-items: center;
+            gap: 8px;
+            color: var(--text-muted);
+            font-size: 0.9rem;
+            font-weight: 500;
+            cursor: pointer;
+            transition: color 0.2s ease;
+        }
+        
+        .toolbar label:hover { color: var(--text-main); }
+
+        .toolbar input[type="number"] {
+            width: 70px;
+            padding: 6px 12px;
+            border-radius: 6px;
+            border: 1px solid var(--panel-border);
+            background: rgba(15, 23, 42, 0.8);
+            color: var(--text-main);
+            font-family: var(--font-mono);
+            outline: none;
+            transition: border-color 0.2s ease, box-shadow 0.2s ease;
+        }
+        
+        .toolbar input[type="number"]:focus {
+            border-color: var(--accent);
+            box-shadow: 0 0 0 2px rgba(56, 189, 248, 0.2);
+        }
+
+        .toolbar input[type="checkbox"] {
+            appearance: none;
+            width: 18px; height: 18px;
+            border: 1px solid var(--panel-border);
+            border-radius: 4px;
+            background: rgba(15, 23, 42, 0.8);
+            cursor: pointer;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        
+        .toolbar input[type="checkbox"]:checked {
+            background: var(--accent);
+            border-color: var(--accent);
+            box-shadow: 0 0 8px var(--accent-glow);
+        }
+        
+        .toolbar input[type="checkbox"]:checked::after {
+            content: "✓";
+            position: absolute;
+            top: 50%; left: 50%;
+            transform: translate(-50%, -50%);
+            color: #fff;
+            font-size: 12px;
+            font-weight: bold;
+        }
+
+        .toolbar a {
+            color: var(--text-main);
+            text-decoration: none;
+            border: 1px solid var(--panel-border);
+            border-radius: 6px;
+            padding: 8px 16px;
+            background: rgba(255, 255, 255, 0.05);
+            font-size: 0.85rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.05em;
+            transition: all 0.2s ease;
+            white-space: nowrap;
+        }
+        
+        .toolbar a:hover {
+            background: rgba(255, 255, 255, 0.1);
+            border-color: rgba(255, 255, 255, 0.2);
+            transform: translateY(-1px);
+        }
+
+        .chart {
+            margin-top: 32px;
+            display: grid;
+            gap: 16px;
+        }
+
+        .chart-row {
+            display: grid;
+            gap: 8px;
+        }
+
+        .chart-row span {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 600;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+        }
+
+        .chart-bar {
+            position: relative;
+            height: 12px;
+            background: rgba(255, 255, 255, 0.05);
+            border-radius: 6px;
+            overflow: hidden;
+            box-shadow: inset 0 2px 4px rgba(0,0,0,0.5);
+        }
+
+        .chart-fill {
+            position: absolute;
+            inset: 0 auto 0 0;
+            height: 100%;
+            border-radius: 6px;
+            transition: width 1s cubic-bezier(0.4, 0, 0.2, 1);
+        }
+
+        .chart-fill.normal {
+            background: linear-gradient(90deg, rgba(16, 185, 129, 0.5), var(--normal));
+            box-shadow: 0 0 10px var(--normal-glow);
+        }
+
+        .chart-fill.alert {
+            background: linear-gradient(90deg, rgba(239, 68, 68, 0.5), var(--alert));
+            box-shadow: 0 0 10px var(--alert-glow);
+        }
+
+        /* Phase 11 Refinement: System Event Styling */
+        .system-row {
+            background: rgba(99, 102, 241, 0.08) !important;
+            border-left: 3px solid #6366f1;
+        }
+
+        .system-row .status-pill {
+            background: rgba(99, 102, 241, 0.15);
+            color: #818cf8;
+            border-color: rgba(99, 102, 241, 0.3);
+        }
+
+        .table-wrap {
+            overflow-x: auto;
+            max-height: 600px;
+            overflow-y: auto;
+            scrollbar-width: thin;
+            scrollbar-color: rgba(255,255,255,0.2) transparent;
+        }
+        
+        .table-wrap::-webkit-scrollbar { width: 6px; height: 6px; }
+        .table-wrap::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+
+        tbody tr {
+            cursor: pointer;
+            transition: all 0.2s ease;
+            border-left: 3px solid transparent;
+        }
+
+        tbody tr:hover {
+            background: rgba(255, 255, 255, 0.04);
+            border-left-color: var(--accent);
+            transform: translateX(4px);
+        }
+
+        table {
+            border-collapse: collapse;
+            width: 100%;
+            text-align: left;
+        }
+
+        th, td {
+            padding: 16px 24px;
+            border-bottom: 1px solid var(--panel-border);
+            font-size: 0.95rem;
+        }
+
+        th {
+            background: rgba(0, 0, 0, 0.3);
+            color: var(--text-muted);
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+            font-size: 0.75rem;
+            font-weight: 700;
+            position: sticky;
+            top: 0;
+            z-index: 10;
+            backdrop-filter: blur(8px);
+        }
+
+        .normal { color: var(--normal); }
+        .alert { color: var(--alert); }
+
+        .status-pill {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 12px;
+            border-radius: 20px;
+            font-size: 0.75rem;
+            font-weight: 700;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            background: rgba(255,255,255,0.05);
+            border: 1px solid currentColor;
+            white-space: nowrap;
+        }
+        
+        .alert .status-pill {
+            background: rgba(239, 68, 68, 0.1);
+            box-shadow: 0 0 8px var(--alert-glow);
+        }
+        
+        .normal .status-pill {
+            background: rgba(16, 185, 129, 0.1);
+        }
+
+        .score {
+            font-family: var(--font-mono);
+            color: var(--accent);
+            font-size: 0.9rem;
+        }
+
+        .empty {
+            padding: 60px 24px;
+            text-align: center;
+            color: var(--text-muted);
+            font-style: italic;
+        }
+
+        .detail-panel {
+            padding: 24px 28px;
+            border-top: 1px solid var(--panel-border);
+            background: rgba(0, 0, 0, 0.3);
+        }
+
+        .detail-panel strong {
+            display: block;
+            margin-bottom: 16px;
+            font-family: var(--font-display);
+            font-size: 1.1rem;
+            letter-spacing: 0.1em;
+            text-transform: uppercase;
+            color: var(--text-main);
+        }
+
+        .detail-grid {
+            display: grid;
+            grid-template-columns: repeat(auto-fit, minmax(200px, 1fr));
+            gap: 16px;
+        }
+
+        .detail-item {
+            padding: 16px;
+            border-radius: 10px;
+            border: 1px solid var(--panel-border);
+            background: rgba(15, 23, 42, 0.6);
+            transition: transform 0.2s ease, background 0.2s ease, border-color 0.2s ease;
+        }
+        
+        .detail-item:hover {
+            transform: translateY(-2px);
+            background: rgba(30, 41, 59, 0.8);
+            border-color: rgba(255,255,255,0.15);
+            box-shadow: 0 8px 16px rgba(0,0,0,0.2);
+        }
+
+        .detail-item span {
+            display: block;
+            margin-bottom: 8px;
+            color: var(--text-muted);
+            font-size: 0.75rem;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.1em;
+        }
+        
+        .detail-item div {
+            font-family: var(--font-mono);
+            font-size: 0.95rem;
+            color: var(--text-main);
+            word-break: break-all;
+        }
+
+        .health-note {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            margin-left: auto;
+            font-weight: 500;
+        }
+
+        .monitor-note {
+            color: var(--text-muted);
+            font-size: 0.85rem;
+            font-weight: 500;
+        }
+
+        .monitor-note strong {
+            color: var(--text-main);
+            font-weight: 600;
+        }
+        
+        #health-status {
+            font-weight: 700;
+            letter-spacing: 0.05em;
+            text-transform: uppercase;
+        }
+
+        /* Utility for animation */
+        @keyframes fadeIn {
+            from { opacity: 0; transform: translateY(10px); }
+            to { opacity: 1; transform: translateY(0); }
+        }
+        
+        tbody tr {
+            animation: fadeIn 0.4s ease forwards;
+        }
+
+        @media (max-width: 768px) {
+            .page { padding-top: 20px; width: min(100% - 24px, 1200px); }
+            h1 { font-size: 2rem; }
+            th, td { padding: 12px 16px; }
+            .toolbar { flex-direction: column; align-items: flex-start; }
+            .health-note { margin-left: 0; }
+            .panel-header { flex-direction: column; align-items: flex-start; }
+        }
+    </style>
+</head>
+<body>
+<div id="toast-container" class="toast-container"></div>
+
+<header class="top-nav">
+    <div class="brand">
+        <div class="brand-icon">
+            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="white" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                <path d="M12 22s8-4 8-10V5l-8-3-8 3v7c0 6 8 10 8 10z"></path>
+            </svg>
+        </div>
+        AI IDS Dashboard
+    </div>
+</header>
+<main class="page">
+    <section class="hero">
+        <span class="eyebrow">Self-Learning AI IDS</span>
+        <p>
+            Live intrusion monitoring backed by packet capture, feature extraction,
+            and Isolation Forest anomaly scoring. The dashboard keeps the latest traffic
+            visible without forcing you to stay in the terminal.
+        </p>
+
+        <div class="monitor-meta">
+            <div class="monitor-chip">
+                <strong>Mode</strong>
+                <span id="monitor-mode">{{ monitor_details.mode }}</span>
+            </div>
+            <div class="monitor-chip">
+                <strong>Adapter</strong>
+                <span id="monitor-interface">
+                    {{ monitor_details.active_interface if monitor_details.active_interface else "auto-detect on start" }}
+                </span>
+            </div>
+            <div class="monitor-chip">
+                <strong>Wi-Fi</strong>
+                <span id="monitor-ssid">
+                    {{ monitor_details.ssid if monitor_details.ssid else "not available" }}
+                </span>
+            </div>
+        </div>
+
+        <div class="stats">
+            <article class="card box-scanned" style="border-bottom: 2px solid var(--accent); background: rgba(14, 165, 233, 0.1);">
+                <span class="label" style="color: var(--accent); letter-spacing: 0.1em;">Total Scanned</span>
+                <span class="value" id="total-scanned" style="color: var(--accent); text-shadow: 0 0 10px rgba(14, 165, 233, 0.3);">{{ summary.total_scanned | default(0) }}</span>
+            </article>
+            <article class="card">
+                <span class="label">Packets Shown</span>
+                <span class="value" id="total-count">{{ summary.total }}</span>
+            </article>
+            <article class="card">
+                <span class="label">Normal</span>
+                <span class="value normal" id="normal-count">{{ summary.normal }}</span>
+            </article>
+            <article class="card">
+                <span class="label">Suspicious</span>
+                <span class="value alert" id="suspicious-count">{{ summary.suspicious }}</span>
+            </article>
+            <article class="card">
+                <span class="label">Anomaly Rate</span>
+                <span class="value" id="anomaly-rate">{{ summary.anomaly_rate }}%</span>
+            </article>
+        </div>
+
+        <div class="glass trend-container" style="margin-top: 32px;">
+            <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 20px;">
+                <span class="eyebrow" style="font-size: 0.75rem;">Threat Evolution</span>
+                <div class="monitor-note">Real-time Risk Index</div>
+            </div>
+            <div style="height: 200px; width: 100%;">
+                <canvas id="trendChart"></canvas>
+            </div>
+        </div>
+    </section>
+
+    <section class="panel">
+        <div class="panel-header">
+            <div class="panel-title">
+                <strong>Detection Feed</strong>
+                <span>Real-time traffic analysis & pattern recognition</span>
+            </div>
+            {% if monitor_running %}
+                <div class="badge"><div class="radar-blip"></div> Monitoring Live</div>
+            {% else %}
+                <div class="badge offline"><div class="radar-blip"></div> Idle / Standby</div>
+            {% endif %}
+            <div class="health-note">
+                Health: <span id="health-status">checking</span>
+            </div>
+        </div>
+
+        <!-- Phase 10: Multi-Parameter Filters -->
+        <div class="filter-bar">
+            <div class="filter-group">
+                <label>Protocol</label>
+                <select id="filter-protocol" class="filter-input" onchange="applyFilters()">
+                    <option value="">All</option>
+                    <option value="TCP" {% if current_filters.protocol == 'TCP' %}selected{% endif %}>TCP</option>
+                    <option value="UDP" {% if current_filters.protocol == 'UDP' %}selected{% endif %}>UDP</option>
+                    <option value="ICMP" {% if current_filters.protocol == 'ICMP' %}selected{% endif %}>ICMP</option>
+                </select>
+            </div>
+            <div class="filter-group">
+                <label>Source IP</label>
+                <input type="text" id="filter-src" class="filter-input" placeholder="Search IP..." 
+                       value="{{ current_filters.src_ip }}" oninput="debounce(applyFilters)">
+            </div>
+            <div class="filter-group">
+                <label>Event Type</label>
+                <select id="filter-type" class="filter-input" onchange="applyFilters()">
+                    <option value="all" {% if current_filters.event_type == 'all' %}selected{% endif %}>All Events</option>
+                    <option value="traffic" {% if current_filters.event_type == 'traffic' %}selected{% endif %}>Traffic Only</option>
+                    <option value="system" {% if current_filters.event_type == 'system' %}selected{% endif %}>System/Errors</option>
+                    <option value="watchdog" {% if current_filters.event_type == 'watchdog' %}selected{% endif %}>Watchdog</option>
+                </select>
+            </div>
+            <a id="export-btn" href="/downloads/realtime" class="btn-export">
+                <svg width="14" height="14" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"></path><polyline points="7 10 12 15 17 10"></polyline><line x1="12" y1="15" x2="12" y2="3"></line></svg>
+                Export CSV
+            </a>
+        </div>
+
+        <div class="toolbar">
+            <label>
+                <input type="checkbox" id="suspicious-only" {% if suspicious_only %}checked{% endif %}>
+                Suspicious only
+            </label>
+            <label>
+                Limit
+                <input type="number" id="limit-input" min="1" max="100" value="{{ limit }}">
+            </label>
+            <a href="/downloads/alerts">Download alerts log</a>
+            <span class="monitor-note">
+                Wi-Fi: <strong id="monitor-ssid-inline">{{ monitor_details.ssid if monitor_details.ssid else "not available" }}</strong>
+            </span>
+        </div>
+
+
+        <div class="table-wrap">
+            <table>
+                <thead>
+                    <tr>
+                        <th class="sortable" data-sort="timestamp">Timestamp</th>
+                        <th class="sortable" data-sort="src_ip">Source IP</th>
+                        <th class="sortable" data-sort="dst_ip">Destination IP</th>
+                        <th class="sortable" data-sort="protocol_name">Protocol</th>
+                        <th class="sortable" data-sort="packet_length">Length</th>
+                        <th class="sortable" data-sort="risk_score">Threat</th>
+                        <th class="sortable" data-sort="anomaly_label">Status</th>
+                    </tr>
+                </thead>
+                <tbody id="events-body">
+                    {% if data %}
+                        {% for row in data %}
+                        <tr>
+                            <td>{{ row.timestamp }}</td>
+                            <td>{{ row.src_ip }}</td>
+                            <td>{{ row.dst_ip }}</td>
+                            <td>{{ row.protocol_name }}</td>
+                            <td>{{ row.packet_length }}</td>
+                            <td class="score">{{ "%.1f"|format(row.risk_score|default(0)) }}%</td>
+                            <td class="{{ 'alert' if row.anomaly == -1 else 'normal' }}">
+                                <span class="status-pill">{{ row.anomaly_label }}</span>
+                            </td>
+                        </tr>
+                        {% endfor %}
+                    {% else %}
+                        <tr>
+                            <td colspan="7" class="empty">
+                                No packets available yet. Start the monitor with a trained model and refresh in a moment.
+                            </td>
+                        </tr>
+                    {% endif %}
+                </tbody>
+            </table>
+        </div>
+
+        <div class="detail-panel">
+            <strong>Selected Packet Details</strong>
+            <div class="detail-grid" id="detail-grid">
+                <div class="detail-item">
+                    <span>Status</span>
+                    <div>Select a packet row to inspect it.</div>
+                </div>
+            </div>
+        </div>
+    </section>
+</main>
+
+<script>
+    let currentEvents = {{ data|tojson }};
+    let sortColumn = "timestamp";
+    let sortAscending = false;
+
+    // Toast Notification System
+    function showToast(title, message) {
+        const container = document.getElementById("toast-container");
+        const toast = document.createElement("div");
+        toast.className = "toast";
+        toast.innerHTML = `
+            <div>
+                <strong>${title}</strong>
+                <div style="color: var(--text-muted); font-size: 0.8rem; margin-top: 4px;">${message}</div>
+            </div>
+        `;
+        container.appendChild(toast);
+        
+        // Trigger animation
+        requestAnimationFrame(() => toast.classList.add("show"));
+        
+        // Remove after 4 seconds
+        setTimeout(() => {
+            toast.classList.remove("show");
+            setTimeout(() => toast.remove(), 400);
+        }, 4000);
+    }
+
+    // Interactive Sorting
+    document.querySelectorAll("th.sortable").forEach(th => {
+        th.addEventListener("click", () => {
+            const column = th.dataset.sort;
+            if (sortColumn === column) {
+                sortAscending = !sortAscending;
+            } else {
+                sortColumn = column;
+                sortAscending = true;
+            }
+            
+            // Update headers UI
+            document.querySelectorAll("th.sortable").forEach(header => {
+                header.classList.remove("sort-asc", "sort-desc");
+            });
+            th.classList.add(sortAscending ? "sort-asc" : "sort-desc");
+            
+            renderRows(currentEvents);
+        });
+    });
+
+    function sortData(data) {
+        return [...data].sort((a, b) => {
+            let valA = a[sortColumn];
+            let valB = b[sortColumn];
+
+            if (sortColumn === "risk_score") {
+                valA = a.risk_score ?? 0;
+                valB = b.risk_score ?? 0;
+            }
+            
+            if (typeof valA === "string") valA = valA.toLowerCase();
+            if (typeof valB === "string") valB = valB.toLowerCase();
+            if (sortColumn === "timestamp") {
+                valA = new Date(valA).getTime();
+                valB = new Date(valB).getTime();
+            }
+            
+            if (valA < valB) return sortAscending ? -1 : 1;
+            if (valA > valB) return sortAscending ? 1 : -1;
+            return 0;
+        });
+    }
+
+    function renderDetails(row) {
+        const detailGrid = document.getElementById("detail-grid");
+        if (!row) {
+            detailGrid.innerHTML = `
+                <div class="detail-item">
+                    <span>Status</span>
+                    <div>Select a packet row to inspect it.</div>
+                </div>
+            `;
+            return;
+        }
+
+        const detailFields = [
+            ["timestamp", row.timestamp],
+            ["source", row.src_ip],
+            ["destination", row.dst_ip],
+            ["protocol", row.protocol_name],
+            ["status", row.anomaly_label],
+            ["description", row.info || "N/A"],
+            ["threat", `${Number(row.risk_score || 0).toFixed(1)}%`],
+            ["raw score", Number(row.anomaly_score).toFixed(6)],
+            ["source port", row.src_port ?? 0],
+            ["destination port", row.dst_port ?? 0],
+            ["length", row.packet_length],
+            ["ttl", row.ttl ?? 0]
+        ];
+
+        detailGrid.innerHTML = detailFields.map(([label, value]) => `
+            <div class="detail-item">
+                <span>${label}</span>
+                <div>${value}</div>
+            </div>
+        `).join("");
+    }
+
+    function renderRows(events) {
+        currentEvents = events;
+        const sortedEvents = sortData(events);
+        const body = document.getElementById("events-body");
+        if (!sortedEvents.length) {
+            body.innerHTML = `
+                <tr>
+                    <td colspan="7" class="empty">
+                        No packets available yet. Start the monitor with a trained model and refresh in a moment.
+                    </td>
+                </tr>
+            `;
+            return;
+        }
+
+        body.innerHTML = sortedEvents.map((row) => {
+            const statusClass = row.anomaly === -1 ? "alert" : "normal";
+            const isSystem = ["WATCHDOG", "SYSTEM"].includes(row.src_ip);
+            const rowClass = isSystem ? "system-row" : "";
+            
+            return `
+                <tr class="${rowClass}">
+                    <td>${row.timestamp}</td>
+                    <td>${row.src_ip}</td>
+                    <td>${row.dst_ip}</td>
+                    <td>${row.protocol_name}</td>
+                    <td>${row.packet_length}</td>
+                    <td class="score">${Number(row.risk_score || 0).toFixed(1)}%</td>
+                    <td class="${statusClass}">
+                        <span class="status-pill">${row.anomaly_label}</span>
+                    </td>
+                </tr>
+            `;
+        }).join("");
+
+
+        const tableRows = body.querySelectorAll("tr");
+        tableRows.forEach((tableRow, index) => {
+            tableRow.addEventListener("click", () => {
+                renderDetails(sortedEvents[index] || null);
+            });
+        });
+
+        if (sortedEvents.length > 0) {
+            renderDetails(sortedEvents[0]);
+        }
+    }
+
+    // Trend Chart Initialization (Phase 10)
+    const ctx = document.getElementById('trendChart').getContext('2d');
+    const trendChart = new Chart(ctx, {
+        type: 'line',
+        data: {
+            labels: [],
+            datasets: [{
+                label: 'Max Risk Score %',
+                data: [],
+                borderColor: '#38bdf8',
+                backgroundColor: 'rgba(56, 189, 248, 0.1)',
+                borderWidth: 2,
+                tension: 0.4,
+                fill: true,
+                pointRadius: 0
+            }]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            scales: {
+                x: { display: false },
+                y: {
+                    min: 0,
+                    max: 100,
+                    grid: { color: 'rgba(255,255,255,0.05)' },
+                    ticks: { color: '#94a3b8', font: { size: 10 } }
+                }
+            },
+            plugins: { legend: { display: false } }
+        }
+    });
+
+    function updateTrendChart(trendData) {
+        trendChart.data.labels = trendData.map(d => d.timestamp);
+        trendChart.data.datasets[0].data = trendData.map(d => d.risk);
+        trendChart.update('none');
+    }
+
+    // Filter Logic (Phase 10)
+    let filterTimer;
+    function debounce(func, delay = 500) {
+        clearTimeout(filterTimer);
+        filterTimer = setTimeout(func, delay);
+    }
+
+    function applyFilters() {
+        refreshEvents();
+    }
+
+    async function refreshHealth() {
+        try {
+            const response = await fetch("/api/health", { cache: "no-store" });
+            const payload = await response.json();
+            const health = payload.health;
+            const status = health.overall_ok ? "ready" : "attention needed";
+            
+            const healthElem = document.getElementById("health-status");
+            if (healthElem) healthElem.textContent = status;
+            
+            if (payload.monitor_details) {
+                const details = payload.monitor_details;
+                const set = (id, val) => {
+                    const el = document.getElementById(id);
+                    if (el) el.textContent = val;
+                };
+                set("monitor-mode", details.mode || "idle");
+                set("monitor-interface", details.active_interface || "auto-detect on start");
+                set("monitor-ssid", details.ssid || "not available");
+                set("monitor-interface-inline", details.active_interface || "auto-detect on start");
+                set("monitor-ssid-inline", details.ssid || "not available");
+            }
+        } catch (error) {
+            console.error("Health refresh failed", error);
+            const healthElem = document.getElementById("health-status");
+            if (healthElem) healthElem.textContent = "unavailable";
+        }
+    }
+
+    async function refreshEvents() {
+        try {
+            const suspiciousOnly = document.getElementById("suspicious-only").checked;
+            const limit = document.getElementById("limit-input").value || "20";
+            
+            // Phase 10 Filters
+            const protocol = document.getElementById("filter-protocol").value;
+            const src_ip = document.getElementById("filter-src").value;
+            const event_type = document.getElementById("filter-type").value;
+            
+            const query = new URLSearchParams({
+                suspicious_only: suspiciousOnly,
+                limit: limit,
+                protocol: protocol,
+                src_ip: src_ip,
+                event_type: event_type
+            });
+
+            const response = await fetch(`/api/events?${query.toString()}`, { cache: "no-store" });
+            const payload = await response.json();
+
+            // Refresh Trend Chart
+            const trendRes = await fetch('/api/trend');
+            const trendPayload = await trendRes.json();
+            updateTrendChart(trendPayload.trend);
+
+            const scannedElem = document.getElementById("total-scanned");
+            if (scannedElem) {
+                scannedElem.textContent = payload.summary.total_scanned || 0;
+            }
+
+            document.getElementById("total-count").textContent = payload.summary.total;
+            document.getElementById("normal-count").textContent = payload.summary.normal;
+            document.getElementById("suspicious-count").textContent = payload.summary.suspicious;
+            document.getElementById("anomaly-rate").textContent = `${payload.summary.anomaly_rate}%`;
+
+            // Update Export URL
+            document.getElementById("export-btn").href = `/api/export?${query.toString()}`;
+
+            // Check for new suspicious events for the Toast
+            if (payload.events && currentEvents.length > 0) {
+                const latestOldTimestamp = currentEvents[0].timestamp;
+                const newSuspicious = payload.events.filter(e => 
+                    e.anomaly === -1 && e.timestamp > latestOldTimestamp
+                );
+                
+                if (newSuspicious.length > 0) {
+                    showToast("Suspicious Activity Detected", `${newSuspicious.length} new alert(s) on the network.`);
+                }
+            }
+
+            renderRows(payload.events);
+        } catch (error) {
+            console.error("Dashboard refresh failed", error);
+        }
+    }
+
+    // Refresh data every 1 second for FAST real-time responsiveness
+    setInterval(refreshEvents, 1000);
+    setInterval(refreshHealth, 6000);
+    document.getElementById("suspicious-only").addEventListener("change", refreshEvents);
+    document.getElementById("limit-input").addEventListener("change", refreshEvents);
+    renderDetails(currentEvents[0]);
+    refreshHealth();
+</script>
+</body>
+</html>

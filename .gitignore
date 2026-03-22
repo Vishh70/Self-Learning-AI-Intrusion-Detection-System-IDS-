@@ -1,0 +1,46 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# OS generated files
+.DS_Store
+.DS_Store?
+._*
+Thumbs.db
+ehthumbs.db
+desktop.ini
+
+# Virtual Environment
+venv/
+ENV/
+env/
+.env
+
+# Pytest & Temp files
+.pytest_cache/
+.pytest_tmp/
+.pytest-tmp-run/
+.pytest-cache-local/
+pytest-cache-files-*/
+logs/pytest-tmp/
+
+# App Logs & Data
+logs/*.log
+logs/*.log.*
+data/*.pcap
+data/*.csv
+
+# AI Model Files (Keep if essential, but usually not committed)
+# saved_model.pkl
+
+# IDE / Project settings
+.vscode/
+.codex-validation/
+.idea/
+*.swp
+*.swo
+
+# Project clean-up fragments
+/tmp/cleanup_ids.py
+/tmp/git_push_helper.sh

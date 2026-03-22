@@ -1,0 +1,16 @@
+{
+  "total_rows": 2,
+  "suspicious_rows": 0,
+  "normal_rows": 2,
+  "anomaly_rate": 0.0,
+  "protocol_breakdown": {
+    "TCP": 2
+  },
+  "suspicious_by_protocol": {},
+  "top_source_ips": {
+    "192.168.1.10": 2
+  },
+  "top_destination_ips": {
+    "8.8.8.8": 2
+  }
+}
