@@ -1,11 +1,15 @@
 from __future__ import annotations
 
+from pathlib import Path
+
 import pandas as pd
 
 from ids.alerts import handle_suspicious_prediction
+from ids.config import PROCESSED_FEATURES_CSV
 from ids.capture import start_capture
 from ids.features import extract_features
 from ids.model import build_inference_matrix, load_model
+from ids.storage import write_features_csv
 
 
 def _align_features_for_model(matrix: pd.DataFrame, model) -> pd.DataFrame:
@@ -98,8 +102,15 @@ def start_realtime_detection(
     interface: str | None = None,
     max_packets: int | None = None,
     enable_alerts: bool = True,
+    persist_features: bool = False,
+    features_csv_path: str | None = str(PROCESSED_FEATURES_CSV),
+    auto_reload_model: bool = False,
+    reload_interval: int = 50,
 ):
     model = load_model(model_path)
+    model_mtime = Path(model_path).stat().st_mtime if Path(model_path).exists() else 0.0
+    feature_rows: list[dict] = []
+    prediction_count = 0
 
     for packet_summary in start_capture(
         mode=mode,
@@ -107,9 +118,25 @@ def start_realtime_detection(
         interface=interface,
         max_packets=max_packets,
     ):
+        prediction_count += 1
+        if auto_reload_model and prediction_count % max(1, reload_interval) == 0:
+            try:
+                new_mtime = Path(model_path).stat().st_mtime
+                if new_mtime > model_mtime:
+                    model = load_model(model_path)
+                    model_mtime = new_mtime
+            except Exception:
+                pass
+
         feature_row = extract_features(packet_summary)
         if feature_row is None:
             continue
+
+        if persist_features:
+            feature_rows.append(feature_row)
+            if len(feature_rows) >= 50:
+                write_features_csv(feature_rows, str(features_csv_path))
+                feature_rows = []
 
         prediction = predict_feature_row(model, feature_row)
         prediction["timestamp"] = packet_summary.get("timestamp", "")
@@ -126,3 +153,6 @@ def start_realtime_detection(
             prediction["log_alert_sent"] = True
 
         yield prediction
+
+    if persist_features and feature_rows:
+        write_features_csv(feature_rows, str(features_csv_path))

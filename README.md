@@ -136,3 +136,40 @@ Rigorously tested to ensure 100% accuracy and stability:
 
 ## 📝 License
 Distributed under the MIT License. Developed with ❤️ by [Vishnu (Vishh70)](https://github.com/Vishh70) & [Atharva (Atharva-cell-web)](https://github.com/Atharva-cell-web).
+
+---
+
+## ♻️ Always‑On Self‑Learning (Auto‑Train Mode)
+You can keep the IDS **learning and retraining automatically** while it captures live traffic.
+
+### ✅ Dashboard + Auto‑Train (Recommended)
+```powershell
+.\venv\Scripts\python.exe app.py --serve --mode live --iface WiFi --auto-train
+```
+This will:
+- append live features into `data\processed\packet_features.csv`
+- retrain in the background when enough new data arrives
+- reload the model automatically without stopping the dashboard
+
+### ✅ Realtime CLI + Auto‑Train (No Web UI)
+```powershell
+.\venv\Scripts\python.exe app.py --realtime --mode live --iface WiFi --auto-train
+```
+
+### ⚙️ Optional Tuning
+```powershell
+.\venv\Scripts\python.exe app.py --serve --mode live --iface WiFi `
+  --auto-train `
+  --auto-train-interval 300 `
+  --auto-train-min-new 200 `
+  --auto-train-min-total 500
+```
+
+### 🔧 Environment Defaults (Optional)
+You can also enable auto‑train by default with environment variables:
+```
+IDS_AUTO_TRAIN_ENABLED=1
+IDS_AUTO_TRAIN_INTERVAL_SECONDS=300
+IDS_AUTO_TRAIN_MIN_NEW_ROWS=200
+IDS_AUTO_TRAIN_MIN_TOTAL_ROWS=500
+```

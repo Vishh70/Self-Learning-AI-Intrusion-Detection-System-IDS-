@@ -8,6 +8,10 @@ from flask import Flask
 from ids.capture import start_capture
 from ids.config import (
     CAPTURE_MODE,
+    AUTO_TRAIN_ENABLED,
+    AUTO_TRAIN_INTERVAL_SECONDS,
+    AUTO_TRAIN_MIN_NEW_ROWS,
+    AUTO_TRAIN_MIN_TOTAL_ROWS,
     EVALUATION_SUMMARY_JSON,
     FLASK_DEBUG,
     FLASK_HOST,
@@ -26,6 +30,7 @@ from ids.evaluation import evaluate_predictions
 from ids.features import extract_features
 from ids.health import collect_runtime_health
 from ids.model import train_model
+from ids.auto_train import start_auto_trainer
 from ids.realtime import start_realtime_detection
 from ids.storage import append_rows_to_csv, write_features_csv
 from ids.utils import ensure_runtime_directories, format_packet_summary, format_realtime_result
@@ -134,6 +139,45 @@ def build_parser() -> argparse.ArgumentParser:
         default=100,
         help="Number of trees used by the Isolation Forest model.",
     )
+    parser.add_argument(
+        "--persist-features",
+        action="store_true",
+        help="Append realtime features to the feature CSV while monitoring.",
+    )
+    parser.add_argument(
+        "--auto-reload-model",
+        action="store_true",
+        help="Reload the saved model automatically when it changes on disk.",
+    )
+    parser.add_argument(
+        "--reload-interval",
+        type=int,
+        default=50,
+        help="How often (in predictions) to check for a newer model file.",
+    )
+    parser.add_argument(
+        "--auto-train",
+        action="store_true",
+        help="Enable continuous retraining from the live feature stream.",
+    )
+    parser.add_argument(
+        "--auto-train-interval",
+        type=int,
+        default=AUTO_TRAIN_INTERVAL_SECONDS,
+        help="Seconds between auto-train checks.",
+    )
+    parser.add_argument(
+        "--auto-train-min-new",
+        type=int,
+        default=AUTO_TRAIN_MIN_NEW_ROWS,
+        help="Minimum new feature rows required before retraining.",
+    )
+    parser.add_argument(
+        "--auto-train-min-total",
+        type=int,
+        default=AUTO_TRAIN_MIN_TOTAL_ROWS,
+        help="Minimum total feature rows required before retraining.",
+    )
     return parser
 
 
@@ -221,6 +265,19 @@ def run_realtime_detection(args: argparse.Namespace) -> int:
 
     total_predictions = 0
     prediction_rows: list[dict] = []
+    persist_features = args.persist_features or args.auto_train
+
+    if args.auto_train:
+        start_auto_trainer(
+            features_csv=args.features_csv,
+            model_path=args.model_path,
+            results_csv=args.results_csv,
+            contamination=args.contamination,
+            n_estimators=args.estimators,
+            interval_seconds=args.auto_train_interval,
+            min_new_rows=args.auto_train_min_new,
+            min_total_rows=args.auto_train_min_total,
+        )
 
     try:
         for prediction in start_realtime_detection(
@@ -229,6 +286,9 @@ def run_realtime_detection(args: argparse.Namespace) -> int:
             pcap_path=args.pcap,
             interface=args.iface,
             max_packets=args.max_packets,
+            persist_features=persist_features,
+            auto_reload_model=args.auto_reload_model,
+            reload_interval=args.reload_interval,
         ):
             print(format_realtime_result(prediction))
             prediction_rows.append(prediction)
@@ -290,13 +350,33 @@ def main() -> int:
         serve_mode = args.mode if _flag_was_provided("--mode") else "live"
         serve_max_packets = args.max_packets if _flag_was_provided("--max-packets") else None
         serve_pcap_path = args.pcap if serve_mode == "pcap" else None
+
+        auto_train_enabled = args.auto_train or AUTO_TRAIN_ENABLED
+        persist_features = args.persist_features or auto_train_enabled
+        auto_reload_model = args.auto_reload_model or auto_train_enabled
+
         start_dashboard_monitor(
             mode=serve_mode,
             model_path=args.model_path,
             pcap_path=serve_pcap_path,
             interface=args.iface,
             max_packets=serve_max_packets,
+            persist_features=persist_features,
+            auto_reload_model=auto_reload_model,
         )
+
+        if auto_train_enabled:
+            start_auto_trainer(
+                features_csv=args.features_csv,
+                model_path=args.model_path,
+                results_csv=args.results_csv,
+                contamination=args.contamination,
+                n_estimators=args.estimators,
+                interval_seconds=args.auto_train_interval,
+                min_new_rows=args.auto_train_min_new,
+                min_total_rows=args.auto_train_min_total,
+            )
+
         app = create_app()
         app.run(host=FLASK_HOST, port=FLASK_PORT, debug=FLASK_DEBUG)
         return 0

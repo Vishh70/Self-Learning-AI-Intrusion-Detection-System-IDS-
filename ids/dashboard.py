@@ -149,6 +149,8 @@ def _worker(
     pcap_path: str | None,
     interface: str | None,
     max_packets: int | None,
+    persist_features: bool,
+    auto_reload_model: bool,
 ) -> None:
     retry_count = 0
     max_retries = 10
@@ -165,6 +167,8 @@ def _worker(
                 pcap_path=pcap_path,
                 interface=interface,
                 max_packets=max_packets,
+                persist_features=persist_features,
+                auto_reload_model=auto_reload_model,
             )
             
             # Reset retry count if we successfully started
@@ -241,6 +245,8 @@ def start_dashboard_monitor(
     pcap_path: str | None = None,
     interface: str | None = None,
     max_packets: int | None = None,
+    persist_features: bool = False,
+    auto_reload_model: bool = False,
 ) -> bool:
     global _worker_thread
 
@@ -282,6 +288,8 @@ def start_dashboard_monitor(
             "pcap_path": pcap_path,
             "interface": active_interface or interface,  # Use resolved interface
             "max_packets": max_packets,
+            "persist_features": persist_features,
+            "auto_reload_model": auto_reload_model,
         },
         daemon=True,
         name="ids-dashboard-monitor",
